@@ -3,236 +3,374 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Motor DC Amarillo</title>
+    <title>Laboratorio Virtual: ESP32 + L298N + Motor DC</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1e1e24;
-            color: #fff;
+            background-color: #1a1a24;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
         }
-        h1 { margin-bottom: 5px; color: #ffdf00; }
-        .container {
-            background-color: #2a2a35;
-            padding: 20px;
+        h1 { margin-bottom: 5px; color: #ffcc00; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        p { margin-top: 0; color: #aaa; }
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        .canvas-container {
+            position: relative;
+            background-color: #252533;
+            padding: 15px;
             border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-            text-align: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
         }
         canvas {
-            background-color: #333344;
+            background-color: #2d2d3d;
             border-radius: 8px;
             border: 2px solid #444455;
-            margin-bottom: 20px;
+            cursor: crosshair;
         }
-        .controls {
+        .sidebar {
+            flex: 1;
+            background-color: #252533;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
             display: flex;
             flex-direction: column;
             gap: 15px;
-            align-items: center;
         }
-        .slider-group {
+        .control-panel {
             display: flex;
-            align-items: center;
-            gap: 15px;
-            width: 100%;
-            max-width: 400px;
+            gap: 10px;
         }
-        input[type="range"] {
-            flex-grow: 1;
-            accent-color: #ffdf00;
-        }
-        .btn {
-            background-color: #ff5555;
-            color: white;
+        button {
+            flex: 1;
+            padding: 12px;
+            font-weight: bold;
             border: none;
-            padding: 10px 20px;
             border-radius: 6px;
             cursor: pointer;
-            font-weight: bold;
             transition: background 0.2s;
         }
-        .btn:hover { background-color: #ff3333; }
-        .stats {
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: #a0a0ff;
+        #playBtn { background-color: #4caf50; color: white; }
+        #playBtn:hover { background-color: #43a047; }
+        #clearBtn { background-color: #f44336; color: white; }
+        #clearBtn:hover { background-color: #e53935; }
+        .terminal-log {
+            background-color: #111;
+            font-family: monospace;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid #ff9800;
+            min-height: 50px;
+            max-height: 80px;
+            overflow-y: auto;
+            color: #00ffcc;
+            font-size: 0.9rem;
+        }
+        .code-editor-box {
+            background-color: #1a1a24;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .code-editor-box h3 { margin-top: 0; color: #ffcc00; font-size: 1rem; }
+        textarea {
+            width: 95%;
+            height: 180px;
+            background-color: #111;
+            color: #55ff55;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+            padding: 10px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            resize: none;
+        }
+        .instructions {
+            font-size: 0.85rem;
+            color: #ccc;
+            line-height: 1.4;
         }
     </style>
 </head>
 <body>
 
-    <h1>Simulador de Motor DC Amarillo</h1>
-    <p>Simulación física con inversión de polaridad</p>
+    <h1>Simulador Interactivo de Conexiones</h1>
+    <p>Cablea el circuito y escribe tu secuencia temporal de código personalizada</p>
 
-    <div class="container">
-        <canvas id="simulationCanvas" width="600" height="300"></canvas>
-        
-        <div class="controls">
-            <div class="slider-group">
-                <label for="voltageSlider">Voltaje:</label>
-                <input type="range" id="voltageSlider" min="3" max="15" step="0.1" value="6">
-                <span id="voltageLabel">6.0V</span>
+    <div class="main-layout">
+        <div class="canvas-container">
+            <canvas id="circuitCanvas" width="750" height="500"></canvas>
+        </div>
+
+        <div class="sidebar">
+            <div class="control-panel">
+                <button id="playBtn">▶ COMPILAR Y CORRER</button>
+                <button id="clearBtn">🗑 RESETEAR CABLES</button>
             </div>
-            
-            <div>
-                <button class="btn" id="invertBtn">Invertir Polaridad (+/-)</button>
+
+            <div class="terminal-log" id="consoleOut">
+                Consola: Laboratorio listo. Haz clic en los nodos para cablear.
             </div>
-            
-            <div class="stats">
-                Estado: <span id="statusLabel">Girando Horario (6.0V)</span>
+
+            <div class="code-editor-box">
+                <h3>📜 Secuencia de Control Personalizada</h3>
+                <textarea id="codeText" spellcheck="false"># Formato: ACCIÓN = DURACIÓN (segundos)
+# Valores válidos: HORARIO, ANTIHORARIO, FRENO
+
+HORARIO = 3
+FRENO = 1
+ANTIHORARIO = 3
+FRENO = 2</textarea>
+            </div>
+
+            <div class="instructions">
+                <strong>🔧 Instrucciones de cableado:</strong>
+                <ul>
+                    <li>Haz clic en un nodo circular y luego haz clic en otro para unirlos con un cable.</li>
+                    <li>Requisitos eléctricos reales:
+                        <ul>
+                            <li>Alimentar el Puente H (VCC 12V y GND desde la Fuente).</li>
+                            <li><strong>Masa común (GND)</strong> unida entre la ESP32 y el Puente H.</li>
+                            <li>Señales lógicas: Conectar D12 a IN1 y D13 a IN2.</li>
+                            <li>Etapa de Potencia: Conectar OUT1 y OUT2 a los bornes del Motor.</li>
+                        </ul>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
-
     <script>
-        const canvas = document.getElementById("simulationCanvas");
+        const canvas = document.getElementById("circuitCanvas");
         const ctx = canvas.getContext("2d");
+        const playBtn = document.getElementById("playBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const consoleOut = document.getElementById("consoleOut");
+        const codeText = document.getElementById("codeText");
+
+        let pins = [];
+        let wires = [];
+        let activePin = null;
+        let isRunning = false;
         
-        // Elementos de la interfaz
-        const voltageSlider = document.getElementById("voltageSlider");
-        const voltageLabel = document.getElementById("voltageLabel");
-        const invertBtn = document.getElementById("invertBtn");
-        const statusLabel = document.getElementById("statusLabel");
+        let motorAngle = 0;
+        let currentMotorSpeed = 0; 
+        let currentStepIndex = 0;
+        let stepTimer = 0;
+        let commandQueue = [];
 
-        // Estado del sistema
-        let voltage = 6.0;
-        let polarity = 1; // 1 = Directa (Horario), -1 = Inversa (Antihorario)
-        let angle = 0;    // Ángulo actual del eje del motor
-
-        // Configuración física básica del motor
-        const MAX_SPEED = 0.25; // Velocidad angular máxima en radianes por cuadro
-        const MIN_VOLTAGE = 3.0; // Voltaje mínimo para vencer la fricción
-
-        // Escuchar controles
-        voltageSlider.addEventListener("input", (e) => {
-            voltage = parseFloat(e.target.value);
-            voltageLabel.textContent = `${voltage.toFixed(1)}V`;
-        });
-
-        invertBtn.addEventListener("click", () => {
-            polarity *= -1;
-            invertBtn.style.backgroundColor = polarity === 1 ? "#ff5555" : "#55ff55";
-            invertBtn.textContent = polarity === 1 ? "Invertir Polaridad (+)" : "Polaridad Invertida (-)";
-        });
-
-        // Función principal de dibujo y física
-        function updateAndRender() {
-            // 1. FÍSICA: Calcular velocidad según el voltaje real
-            let currentSpeed = 0;
-            if (voltage >= MIN_VOLTAGE) {
-                // La velocidad escala linealmente con el voltaje superado el mínimo
-                const voltageFactor = (voltage - MIN_VOLTAGE) / (15.0 - MIN_VOLTAGE);
-                currentSpeed = (0.03 + voltageFactor * (MAX_SPEED - 0.03)) * polarity;
-            }
-            
-            // Actualizar el ángulo del eje
-            angle += currentSpeed;
-
-            // Actualizar texto de estado
-            if (currentSpeed === 0) {
-                statusLabel.textContent = "Detenido (Voltaje insuficiente)";
-                statusLabel.style.color = "#ff5555";
-            } else {
-                statusLabel.textContent = `Girando ${polarity === 1 ? 'Horario (↻)' : 'Antihorario (↺)'} a ${voltage.toFixed(1)}V`;
-                statusLabel.style.color = "#55ff55";
-            }
-
-            // 2. RENDERIZADO: Limpiar el lienzo
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // --- DIBUJAR FUENTE DE PODER (Izquierda) ---
-            ctx.fillStyle = "#444";
-            ctx.fillRect(50, 100, 120, 100);
-            ctx.strokeStyle = "#666";
-            ctx.strokeRect(50, 100, 120, 100);
-            
-            // Pantalla de la fuente
-            ctx.fillStyle = "#000";
-            ctx.fillRect(60, 110, 100, 35);
-            ctx.fillStyle = "#00ff00";
-            ctx.font = "20px monospace";
-            ctx.fillText(`${(voltage * polarity).toFixed(1)}V`, 70, 135);
-
-            // Bornes de salida de la fuente
-            const b1Color = polarity === 1 ? "#ff3333" : "#3333ff";
-            const b2Color = polarity === 1 ? "#3333ff" : "#ff3333";
-            
-            ctx.fillStyle = b1Color; ctx.beginPath(); ctx.arc(85, 175, 8, 0, Math.PI*2); ctx.fill(); // Borne Superior
-            ctx.fillStyle = b2Color; ctx.beginPath(); ctx.arc(135, 175, 8, 0, Math.PI*2); ctx.fill(); // Borne Inferior
-
-            // --- DIBUJAR CABLES (Conexión dinámica) ---
-            ctx.lineWidth = 4;
-            // Cable 1
-            ctx.strokeStyle = b1Color;
-            ctx.beginPath();
-            ctx.moveTo(85, 175);
-            ctx.bezierCurveTo(100, 240, 260, 220, 290, 140);
-            ctx.stroke();
-
-            // Cable 2
-            ctx.strokeStyle = b2Color;
-            ctx.beginPath();
-            ctx.moveTo(135, 175);
-            ctx.bezierCurveTo(150, 260, 280, 240, 290, 160);
-            ctx.stroke();
-
-            // --- DIBUJAR MOTOR AMARILLO (Centro/Derecha) ---
-            const mx = 350; // Motor X
-            const my = 150; // Motor Y
-
-            // Tapa metálica trasera (Plástica/Gris) donde entran los cables
-            ctx.fillStyle = "#aaa";
-            ctx.fillRect(285, my - 20, 15, 40);
-
-            // Cuerpo del motor (Caja reductora plástica amarilla típica de robótica)
-            ctx.fillStyle = "#ffcc00"; // Amarillo característico
-            ctx.fillRect(300, my - 30, 110, 60);
-            ctx.strokeStyle = "#cca300";
-            ctx.lineWidth = 2;
-            ctx.strokeRect(300, my - 30, 110, 60);
-
-            // Detalles del chasis del motor (Círculo central decorativo)
-            ctx.fillStyle = "#e6b800";
-            ctx.beginPath(); ctx.arc(370, my, 18, 0, Math.PI*2); ctx.fill();
-
-            // Eje del motor saliente (Blanco/Metalizado)
-            ctx.fillStyle = "#ddd";
-            ctx.fillRect(360, my - 6, 20, 12);
-
-            // --- ENGRANAJE / RUEDA SIMULADA (Giratoria en el eje) ---
-            ctx.save();
-            ctx.translate(370, my); // Mover el origen de coordenadas al centro del eje
-            ctx.rotate(angle);      // Rotar todo el contexto según la física calculada
-
-            // Rueda de acople acrílica/plástica
-            ctx.fillStyle = "#ffffff";
-            ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = "#bbb";
-            ctx.stroke();
-
-            // Línea visual o aspas para notar claramente la rotación
-            ctx.fillStyle = "#ff3333";
-            ctx.fillRect(-25, -4, 50, 8); // Aspa horizontal rota con el contexto
-            ctx.fillRect(-4, -25, 8, 50); // Aspa vertical rota con el contexto
-            
-            // Centro del eje
-            ctx.fillStyle = "#555";
-            ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.fill();
-
-            ctx.restore(); // Restaurar el lienzo para no alterar otros elementos
-
-            // Ciclo de animación continuo y suave
-            requestAnimationFrame(updateAndRender);
+        function initPins() {
+            pins = [
+                { id: "FUENTE_VCC", label: "VCC (+)", x: 80, y: 140, color: "#ff3333", comp: "FUENTE" },
+                { id: "FUENTE_GND", label: "GND (-)", x: 140, y: 140, color: "#3333ff", comp: "FUENTE" },
+                { id: "ESP_D12", label: "D12 (IN1)", x: 270, y: 350, color: "#ff9800", comp: "ESP32" },
+                { id: "ESP_D13", label: "D13 (IN2)", x: 270, y: 380, color: "#ff9800", comp: "ESP32" },
+                { id: "ESP_GND", label: "GND", x: 270, y: 430, color: "#3333ff", comp: "ESP32" },
+                { id: "L298_12V", label: "12V", x: 440, y: 170, color: "#ff3333", comp: "L298N" },
+                { id: "L298_GND", label: "GND", x: 475, y: 170, color: "#3333ff", comp: "L298N" },
+                { id: "L298_IN1", label: "IN1", x: 420, y: 240, color: "#ff9800", comp: "L298N" },
+                { id: "L298_IN2", label: "IN2", x: 450, y: 240, color: "#ff9800", comp: "L298N" },
+                { id: "L298_OUT1", label: "OUT1", x: 550, y: 160, color: "#8e44ad", comp: "L298N" },
+                { id: "L298_OUT2", label: "OUT2", x: 550, y: 190, color: "#8e44ad", comp: "L298N" },
+                { id: "MOT_A", label: "Term A", x: 635, y: 345, color: "#8e44ad", comp: "MOTOR" },
+                { id: "MOT_B", label: "Term B", x: 635, y: 365, color: "#8e44ad", comp: "MOTOR" }
+            ];
         }
 
-        // Iniciar la animación
-        updateAndRender();
+        function drawComponents() {
+            ctx.fillStyle = "#3e3e4e"; ctx.fillRect(40, 40, 140, 120);
+            ctx.strokeStyle = "#555"; ctx.lineWidth = 2; ctx.strokeRect(40, 40, 140, 120);
+            ctx.fillStyle = "#000"; ctx.fillRect(55, 55, 110, 40);
+            ctx.fillStyle = "#ffcc00"; ctx.font = "bold 16px monospace"; ctx.fillText("9.0 V", 85, 80);
+            ctx.fillStyle = "#fff"; ctx.font = "11px sans-serif"; ctx.fillText("FUENTE DC", 78, 115);
+
+            ctx.fillStyle = "#1e1e1e"; ctx.fillRect(250, 280, 110, 180);
+            ctx.strokeStyle = "#ff9800"; ctx.strokeRect(250, 280, 110, 180);
+            ctx.fillStyle = "#333"; ctx.fillRect(285, 290, 40, 40);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 12px sans-serif"; ctx.fillText("ESP32 DEVKIT", 263, 340);
+
+            ctx.fillStyle = "#a12222"; ctx.fillRect(400, 100, 160, 160);
+            ctx.strokeStyle = "#7a1515"; ctx.strokeRect(400, 100, 160, 160);
+            ctx.fillStyle = "#222"; ctx.fillRect(440, 110, 80, 40);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 12px sans-serif"; ctx.fillText("DRV L298N", 450, 220);
+
+            ctx.fillStyle = "#ffcc00"; ctx.fillRect(620, 300, 100, 50);
+            ctx.strokeStyle = "#cca300"; ctx.strokeRect(620, 300, 100, 50);
+            ctx.fillStyle = "#bbb"; ctx.fillRect(605, 310, 15, 30);
+            ctx.fillStyle = "#eee"; ctx.fillRect(660, 320, 20, 10);
+            
+            ctx.save();
+            ctx.translate(670, 325);
+            ctx.rotate(motorAngle);
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = "#444"; ctx.stroke();
+            ctx.fillStyle = "#333"; ctx.fillRect(-22, -3, 44, 6); ctx.fillRect(-3, -22, 6, 44);
+            ctx.restore();
+
+            pins.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1; ctx.stroke();
+
+                ctx.fillStyle = "#ccc"; ctx.font = "10px monospace";
+                if(p.id.includes("ESP") || p.id.includes("MOT")) {
+                    ctx.fillText(p.label, p.x + 12, p.y + 4);
+                } else {
+                    ctx.fillText(p.label, p.x - 15, p.y - 12);
+                }
+            });
+        }
+
+        function drawWires() {
+            wires.forEach(w => {
+                ctx.strokeStyle = w.color; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(w.from.x, w.from.y);
+                ctx.bezierCurveTo(w.from.x, w.from.y + 30, w.to.x, w.to.y + 30, w.to.x, w.to.y);
+                ctx.stroke();
+            });
+
+            if (activePin) {
+                ctx.strokeStyle = activePin.color; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(activePin.x, activePin.y);
+                ctx.lineTo(mousePos.x, mousePos.y); ctx.stroke();
+            }
+        }
+        let mousePos = { x: 0, y: 0 };
+        canvas.addEventListener("mousemove", (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mousePos.x = e.clientX - rect.left;
+            mousePos.y = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener("mousedown", () => {
+            pins.forEach(p => {
+                const dist = Math.hypot(p.x - mousePos.x, p.y - mousePos.y);
+                if (dist < 10) { activePin = p; }
+            });
+        });
+
+        canvas.addEventListener("mouseup", () => {
+            if (activePin) {
+                pins.forEach(p => {
+                    const dist = Math.hypot(p.x - mousePos.x, p.y - mousePos.y);
+                    if (dist < 10 && p !== activePin && p.comp !== activePin.comp) {
+                        const exists = wires.some(w => 
+                            (w.from === activePin && w.to === p) || (w.from === p && w.to === activePin)
+                        );
+                        if (!exists) { wires.push({ from: activePin, to: p, color: activePin.color }); }
+                    }
+                });
+                activePin = null;
+            }
+        });
+
+        clearBtn.addEventListener("click", () => {
+            wires = []; isRunning = false; currentMotorSpeed = 0;
+            consoleOut.textContent = "Consola: Cables eliminados. Laboratorio reseteado.";
+            consoleOut.style.borderLeftColor = "#ff9800";
+        });
+
+        function isConnected(idA, idB) {
+            return wires.some(w => (w.from.id === idA && w.to.id === idB) || (w.from.id === idB && w.to.id === idA));
+        }
+
+        function parseCustomCode() {
+            commandQueue = [];
+            const lines = codeText.value.split("\n");
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (line.startsWith("#") || line === "") continue;
+                let parts = line.split("=");
+                if (parts.length === 2) {
+                    let action = parts[0].trim().toUpperCase();
+                    let duration = parseFloat(parts[1].trim());
+                    if ((action === "HORARIO" || action === "ANTIHORARIO" || action === "FRENO") && !isNaN(duration)) {
+                        commandQueue.push({ action: action, duration: duration * 60 });
+                    }
+                }
+            }
+            return commandQueue.length > 0;
+        }
+
+        playBtn.addEventListener("click", () => {
+            if (isRunning) {
+                isRunning = false; currentMotorSpeed = 0;
+                playBtn.textContent = "▶ COMPILAR Y CORRER";
+                playBtn.style.backgroundColor = "#4caf50";
+                consoleOut.textContent = "Consola: Simulación detenida de forma manual.";
+                return;
+            }
+
+            if (!isConnected("FUENTE_VCC", "L298_12V") || !isConnected("FUENTE_GND", "L298_GND")) {
+                logError("ERROR ELECTRÓNICO: El Puente H L298N no tiene alimentación de potencia desde la Fuente.");
+                return;
+            }
+
+            if (!isConnected("ESP_GND", "L298_GND") && !isConnected("ESP_GND", "FUENTE_GND")) {
+                logError("ERROR DE REFERENCIA: Falta unificar las masas (GND). ¡La ESP32 y el L298N necesitan masa común!");
+                return;
+            }
+
+            if (!isConnected("ESP_D12", "L298_IN1") || !isConnected("ESP_D13", "L298_IN2")) {
+                logError("ERROR LÓGICO: Falta conectar los pines de datos de la ESP32 (D12 y D13) a las entradas lógicas IN1 e IN2.");
+                return;
+            }
+
+            if ((!isConnected("L298_OUT1", "MOT_A") && !isConnected("L298_OUT1", "MOT_B")) || 
+                (!isConnected("L298_OUT2", "MOT_A") && !isConnected("L298_OUT2", "MOT_B"))) {
+                logError("ERROR DE CARGA: Las salidas OUT1 y OUT2 del Puente H no están unidas al Motor DC.");
+                return;
+            }
+
+            if (!parseCustomCode()) {
+                logError("ERROR DE CÓDIGO: El código ingresado no contiene comandos válidos o tiene errores de sintaxis.");
+                return;
+            }
+
+            isRunning = true; currentStepIndex = 0; stepTimer = 0;
+            playBtn.textContent = "⏹ DETENER SIMULACIÓN"; playBtn.style.backgroundColor = "#e53935";
+            consoleOut.style.borderLeftColor = "#4caf50";
+            consoleOut.textContent = "Consola: ¡Circuito correcto! Código subido con éxito a la ESP32.";
+        });
+
+        function logError(msg) {
+            consoleOut.textContent = msg; consoleOut.style.borderLeftColor = "#f44336";
+        }
+
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (isRunning && commandQueue.length > 0) {
+                let currentStep = commandQueue[currentStepIndex];
+                if (currentStep.action === "HORARIO") {
+                    currentMotorSpeed = 0.15;
+                    consoleOut.textContent = `[ESP32]: D12=HIGH, D13=LOW -> Motor: Giro Horario (${((currentStep.duration - stepTimer)/60).toFixed(1)}s)`;
+                } else if (currentStep.action === "ANTIHORARIO") {
+                    currentMotorSpeed = -0.15;
+                    consoleOut.textContent = `[ESP32]: D12=LOW, D13=HIGH -> Motor: Giro Antihorario (${((currentStep.duration - stepTimer)/60).toFixed(1)}s)`;
+                } else {
+                    currentMotorSpeed = 0;
+                    consoleOut.textContent = `[ESP32]: D12=LOW, D13=LOW -> Motor: Freno Electrónico (${((currentStep.duration - stepTimer)/60).toFixed(1)}s)`;
+                }
+                stepTimer++;
+                if (stepTimer >= currentStep.duration) {
+                    stepTimer = 0; currentStepIndex = (currentStepIndex + 1) % commandQueue.length;
+                }
+            }
+            motorAngle += currentMotorSpeed;
+            drawComponents(); drawWires();
+            requestAnimationFrame(loop);
+        }
+
+        initPins();
+        loop();
     </script>
 </body>
 </html>
