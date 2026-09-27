@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Motor DC Amarillo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e24;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        h1 { margin-bottom: 5px; color: #ffdf00; }
+        .container {
+            background-color: #2a2a35;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        canvas {
+            background-color: #333344;
+            border-radius: 8px;
+            border: 2px solid #444455;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            max-width: 400px;
+        }
+        input[type="range"] {
+            flex-grow: 1;
+            accent-color: #ffdf00;
+        }
+        .btn {
+            background-color: #ff5555;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: #ff3333; }
+        .stats {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #a0a0ff;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Simulador de Motor DC Amarillo</h1>
+    <p>Simulación física con inversión de polaridad</p>
+
+    <div class="container">
+        <canvas id="simulationCanvas" width="600" height="300"></canvas>
+        
+        <div class="controls">
+            <div class="slider-group">
+                <label for="voltageSlider">Voltaje:</label>
+                <input type="range" id="voltageSlider" min="3" max="15" step="0.1" value="6">
+                <span id="voltageLabel">6.0V</span>
+            </div>
+            
+            <div>
+                <button class="btn" id="invertBtn">Invertir Polaridad (+/-)</button>
+            </div>
+            
+            <div class="stats">
+                Estado: <span id="statusLabel">Girando Horario (6.0V)</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("simulationCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        // Elementos de la interfaz
+        const voltageSlider = document.getElementById("voltageSlider");
+        const voltageLabel = document.getElementById("voltageLabel");
+        const invertBtn = document.getElementById("invertBtn");
+        const statusLabel = document.getElementById("statusLabel");
+
+        // Estado del sistema
+        let voltage = 6.0;
+        let polarity = 1; // 1 = Directa (Horario), -1 = Inversa (Antihorario)
+        let angle = 0;    // Ángulo actual del eje del motor
+
+        // Configuración física básica del motor
+        const MAX_SPEED = 0.25; // Velocidad angular máxima en radianes por cuadro
+        const MIN_VOLTAGE = 3.0; // Voltaje mínimo para vencer la fricción
+
+        // Escuchar controles
+        voltageSlider.addEventListener("input", (e) => {
+            voltage = parseFloat(e.target.value);
+            voltageLabel.textContent = `${voltage.toFixed(1)}V`;
+        });
+
+        invertBtn.addEventListener("click", () => {
+            polarity *= -1;
+            invertBtn.style.backgroundColor = polarity === 1 ? "#ff5555" : "#55ff55";
+            invertBtn.textContent = polarity === 1 ? "Invertir Polaridad (+)" : "Polaridad Invertida (-)";
+        });
+
+        // Función principal de dibujo y física
+        function updateAndRender() {
+            // 1. FÍSICA: Calcular velocidad según el voltaje real
+            let currentSpeed = 0;
+            if (voltage >= MIN_VOLTAGE) {
+                // La velocidad escala linealmente con el voltaje superado el mínimo
+                const voltageFactor = (voltage - MIN_VOLTAGE) / (15.0 - MIN_VOLTAGE);
+                currentSpeed = (0.03 + voltageFactor * (MAX_SPEED - 0.03)) * polarity;
+            }
+            
+            // Actualizar el ángulo del eje
+            angle += currentSpeed;
+
+            // Actualizar texto de estado
+            if (currentSpeed === 0) {
+                statusLabel.textContent = "Detenido (Voltaje insuficiente)";
+                statusLabel.style.color = "#ff5555";
+            } else {
+                statusLabel.textContent = `Girando ${polarity === 1 ? 'Horario (↻)' : 'Antihorario (↺)'} a ${voltage.toFixed(1)}V`;
+                statusLabel.style.color = "#55ff55";
+            }
+
+            // 2. RENDERIZADO: Limpiar el lienzo
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // --- DIBUJAR FUENTE DE PODER (Izquierda) ---
+            ctx.fillStyle = "#444";
+            ctx.fillRect(50, 100, 120, 100);
+            ctx.strokeStyle = "#666";
+            ctx.strokeRect(50, 100, 120, 100);
+            
+            // Pantalla de la fuente
+            ctx.fillStyle = "#000";
+            ctx.fillRect(60, 110, 100, 35);
+            ctx.fillStyle = "#00ff00";
+            ctx.font = "20px monospace";
+            ctx.fillText(`${(voltage * polarity).toFixed(1)}V`, 70, 135);
+
+            // Bornes de salida de la fuente
+            const b1Color = polarity === 1 ? "#ff3333" : "#3333ff";
+            const b2Color = polarity === 1 ? "#3333ff" : "#ff3333";
+            
+            ctx.fillStyle = b1Color; ctx.beginPath(); ctx.arc(85, 175, 8, 0, Math.PI*2); ctx.fill(); // Borne Superior
+            ctx.fillStyle = b2Color; ctx.beginPath(); ctx.arc(135, 175, 8, 0, Math.PI*2); ctx.fill(); // Borne Inferior
+
+            // --- DIBUJAR CABLES (Conexión dinámica) ---
+            ctx.lineWidth = 4;
+            // Cable 1
+            ctx.strokeStyle = b1Color;
+            ctx.beginPath();
+            ctx.moveTo(85, 175);
+            ctx.bezierCurveTo(100, 240, 260, 220, 290, 140);
+            ctx.stroke();
+
+            // Cable 2
+            ctx.strokeStyle = b2Color;
+            ctx.beginPath();
+            ctx.moveTo(135, 175);
+            ctx.bezierCurveTo(150, 260, 280, 240, 290, 160);
+            ctx.stroke();
+
+            // --- DIBUJAR MOTOR AMARILLO (Centro/Derecha) ---
+            const mx = 350; // Motor X
+            const my = 150; // Motor Y
+
+            // Tapa metálica trasera (Plástica/Gris) donde entran los cables
+            ctx.fillStyle = "#aaa";
+            ctx.fillRect(285, my - 20, 15, 40);
+
+            // Cuerpo del motor (Caja reductora plástica amarilla típica de robótica)
+            ctx.fillStyle = "#ffcc00"; // Amarillo característico
+            ctx.fillRect(300, my - 30, 110, 60);
+            ctx.strokeStyle = "#cca300";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(300, my - 30, 110, 60);
+
+            // Detalles del chasis del motor (Círculo central decorativo)
+            ctx.fillStyle = "#e6b800";
+            ctx.beginPath(); ctx.arc(370, my, 18, 0, Math.PI*2); ctx.fill();
+
+            // Eje del motor saliente (Blanco/Metalizado)
+            ctx.fillStyle = "#ddd";
+            ctx.fillRect(360, my - 6, 20, 12);
+
+            // --- ENGRANAJE / RUEDA SIMULADA (Giratoria en el eje) ---
+            ctx.save();
+            ctx.translate(370, my); // Mover el origen de coordenadas al centro del eje
+            ctx.rotate(angle);      // Rotar todo el contexto según la física calculada
+
+            // Rueda de acople acrílica/plástica
+            ctx.fillStyle = "#ffffff";
+            ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "#bbb";
+            ctx.stroke();
+
+            // Línea visual o aspas para notar claramente la rotación
+            ctx.fillStyle = "#ff3333";
+            ctx.fillRect(-25, -4, 50, 8); // Aspa horizontal rota con el contexto
+            ctx.fillRect(-4, -25, 8, 50); // Aspa vertical rota con el contexto
+            
+            // Centro del eje
+            ctx.fillStyle = "#555";
+            ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI*2); ctx.fill();
+
+            ctx.restore(); // Restaurar el lienzo para no alterar otros elementos
+
+            // Ciclo de animación continuo y suave
+            requestAnimationFrame(updateAndRender);
+        }
+
+        // Iniciar la animación
+        updateAndRender();
+    </script>
+</body>
+</html>
